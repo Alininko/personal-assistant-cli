@@ -1,4 +1,5 @@
 from sqlmodel import Session
+import streamlit as st
 
 from app.application.calendar_service import CalendarService
 from app.application.contacts_service import ContactsService
@@ -56,6 +57,92 @@ def get_help() -> str:
         "\n  add-tag <id> <tag1> [tag2...]         - Add tag(s) to a note"
         "\n  remove-tag <id> <tag>                 - Remove a tag from a note"
     )
+
+
+def process_command(
+    command: str,
+    args: list[str],
+    contacts_svc: ContactsService,
+    notes_svc: NotesService,
+    calendar_svc: CalendarService,
+    contacts_repo: ContactsRepository,
+    notes_repo: NotesRepository,
+) -> str:
+    if command in ("close", "exit"):
+        return "Good bye!"
+    elif command == "hello":
+        return "How can I help you?"
+    elif command == "help":
+        return get_help()
+    elif command == "add":
+        return add_contact(args, contacts_svc)
+    elif command == "change":
+        return change_contact(args, contacts_svc)
+    elif command == "phone":
+        return show_phone(args, contacts_svc)
+    elif command == "all":
+        return show_all(contacts_svc)
+    elif command == "add-birthday":
+        return add_birthday_cmd(args, contacts_svc)
+    elif command == "show-birthday":
+        return show_birthday_cmd(args, contacts_svc)
+    elif command == "birthdays":
+        return birthdays_cmd(args, calendar_svc)
+    elif command == "add-email":
+        return add_email_cmd(args, contacts_svc)
+    elif command == "add-address":
+        return add_address_cmd(args, contacts_svc)
+    elif command == "delete-contact":
+        return delete_contact_cmd(args, contacts_svc)
+    elif command == "add-note":
+        return add_note_cmd(args, notes_svc)
+    elif command == "list-notes":
+        return list_notes_cmd(notes_svc)
+    elif command == "find-note":
+        return find_note_cmd(args, notes_svc)
+    elif command == "edit-note":
+        return edit_note_cmd(args, notes_svc)
+    elif command == "delete-note":
+        return delete_note_cmd(args, notes_svc)
+    elif command == "find-tag":
+        return find_tag_cmd(args, notes_repo)
+    elif command == "add-tag":
+        return add_tag_cmd(args, notes_svc)
+    elif command == "remove-tag":
+        return remove_tag_cmd(args, notes_svc)
+    else:
+        return "Invalid command."
+
+
+def run_streamlit() -> None:
+    st.set_page_config(page_title="Personal Assistant")
+    st.title("Personal Assistant")
+
+    with Session(engine) as session:
+        contacts_repo = ContactsRepository(session)
+        notes_repo = NotesRepository(session)
+
+        contacts_svc = ContactsService(contacts_repo)
+        notes_svc = NotesService(notes_repo)
+        calendar_svc = CalendarService(contacts_repo)
+
+        if "output" not in st.session_state:
+            st.session_state.output = ""
+
+        command_line = st.text_input("Enter command:")
+        if st.button("Run") and command_line.strip():
+            cmd, args = parse_input(command_line)
+            st.session_state.output = process_command(
+                cmd,
+                args,
+                contacts_svc,
+                notes_svc,
+                calendar_svc,
+                contacts_repo,
+                notes_repo,
+            )
+
+        st.text_area("Output", value=st.session_state.output, height=200)
 
 
 # ── Contacts ──────────────────────────────────────────────────────────
@@ -294,51 +381,17 @@ def run() -> None:
                 continue
 
             command, args = parse_input(user_input)
+            output = process_command(
+                command,
+                args,
+                contacts_svc,
+                notes_svc,
+                calendar_svc,
+                contacts_repo,
+                notes_repo,
+            )
+
+            print(output)
 
             if command in ("close", "exit"):
-                print("Good bye!")
                 break
-            elif command == "hello":
-                print("How can I help you?")
-            elif command == "help":
-                print(get_help())
-            # Contacts
-            elif command == "add":
-                print(add_contact(args, contacts_svc))
-            elif command == "change":
-                print(change_contact(args, contacts_svc))
-            elif command == "phone":
-                print(show_phone(args, contacts_svc))
-            elif command == "all":
-                print(show_all(contacts_svc))
-            elif command == "add-birthday":
-                print(add_birthday_cmd(args, contacts_svc))
-            elif command == "show-birthday":
-                print(show_birthday_cmd(args, contacts_svc))
-            elif command == "birthdays":
-                print(birthdays_cmd(args, calendar_svc))
-            elif command == "add-email":
-                print(add_email_cmd(args, contacts_svc))
-            elif command == "add-address":
-                print(add_address_cmd(args, contacts_svc))
-            elif command == "delete-contact":
-                print(delete_contact_cmd(args, contacts_svc))
-            # Notes
-            elif command == "add-note":
-                print(add_note_cmd(args, notes_svc))
-            elif command == "list-notes":
-                print(list_notes_cmd(notes_svc))
-            elif command == "find-note":
-                print(find_note_cmd(args, notes_svc))
-            elif command == "edit-note":
-                print(edit_note_cmd(args, notes_svc))
-            elif command == "delete-note":
-                print(delete_note_cmd(args, notes_svc))
-            elif command == "find-tag":
-                print(find_tag_cmd(args, notes_repo))
-            elif command == "add-tag":
-                print(add_tag_cmd(args, notes_svc))
-            elif command == "remove-tag":
-                print(remove_tag_cmd(args, notes_svc))
-            else:
-                print("Invalid command.")
