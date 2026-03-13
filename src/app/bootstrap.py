@@ -2,12 +2,10 @@ import logging
 
 from sqlmodel import SQLModel, inspect
 
-from app.config import DATA_DIR, LOG_FORMAT, LOG_LEVEL
-
-from app.db import engine
-
 # Import models so SQLModel registers them before create_all
 import app.domain.models  # noqa: F401
+from app.config import DATA_DIR, LOG_FORMAT, LOG_LEVEL
+from app.db import engine
 
 logger = logging.getLogger(__name__)
 
