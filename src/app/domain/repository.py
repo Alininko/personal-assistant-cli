@@ -1,5 +1,7 @@
 from typing import Generic, TypeVar
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import Session, SQLModel, select, or_
+
+from app.domain.models import Note, NoteTagLink, Tag
 from datetime import date, timedelta
 from .models import Contact
 
@@ -102,10 +104,36 @@ class ContactsRepository(BaseRepository[Contact]):
         return result
     
 
-# TODO (Dev 2):
-#
-# class NotesRepository(BaseRepository[Note]):
-#     model = Note
-#     def search(self, query: str) -> list[Note]: ...
-#     def search_by_tag(self, tag: str) -> list[Note]: ...
-#     def add_with_tags(self, note: Note, tag_names: list[str]) -> Note: ...
+class NotesRepository(BaseRepository[Note]):
+    model = Note
+
+    def search(self, query: str) -> list[Note]:
+        statement = select(Note).where(
+            or_(
+                Note.title.contains(query),
+                Note.body.contains(query),
+            )
+        )
+        return list(self.session.exec(statement).all())
+
+    def search_by_tag(self, tag: str) -> list[Note]:
+        statement = (
+            select(Note)
+            .join(NoteTagLink)
+            .join(Tag)
+            .where(Tag.name == tag)
+        )
+        return list(self.session.exec(statement).all())
+
+    def add_with_tags(self, note: Note, tag_names: list[str]) -> Note:
+        for name in tag_names:
+            statement = select(Tag).where(Tag.name == name)
+            tag = self.session.exec(statement).first()
+            if tag is None:
+                tag = Tag(name=name)
+            note.tags.append(tag)
+
+        self.session.add(note)
+        self.session.commit()
+        self.session.refresh(note)
+        return note
