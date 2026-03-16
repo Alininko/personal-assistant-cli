@@ -157,3 +157,59 @@ def test_update_note_validates_empty_title(svc: NotesService):
     assert created.id is not None
     with pytest.raises(ValueError, match="Note title cannot be empty"):
         svc.update_note(created.id, title="")
+
+
+# ── Sort / Group by tags ─────────────────────────────────────────────
+
+
+def test_notes_grouped_by_tag(svc: NotesService):
+    svc.create_note("Work task", tags=["work"])
+    svc.create_note("Home task", tags=["home"])
+    svc.create_note("Both", tags=["work", "home"])
+
+    grouped = svc.notes_grouped_by_tag()
+    assert "work" in grouped
+    assert "home" in grouped
+    assert len(grouped["work"]) == 2  # "Work task" + "Both"
+    assert len(grouped["home"]) == 2  # "Home task" + "Both"
+
+
+def test_notes_grouped_by_tag_empty(svc: NotesService):
+    grouped = svc.notes_grouped_by_tag()
+    assert grouped == {}
+
+
+def test_untagged_notes(svc: NotesService):
+    svc.create_note("Tagged", tags=["work"])
+    svc.create_note("Not tagged")
+
+    untagged = svc.untagged_notes()
+    assert len(untagged) == 1
+    assert untagged[0].title == "Not tagged"
+
+
+def test_untagged_notes_empty_when_all_tagged(svc: NotesService):
+    svc.create_note("Note", tags=["tag1"])
+    assert svc.untagged_notes() == []
+
+
+# ── Notes stats / analytics ──────────────────────────────────────────
+
+
+def test_tag_statistics(svc: NotesService):
+    svc.create_note("A", tags=["python", "dev"])
+    svc.create_note("B", tags=["python"])
+    svc.create_note("C", tags=["dev", "work"])
+
+    stats = svc.tag_statistics()
+    stats_dict = dict(stats)
+    assert stats_dict["python"] == 2
+    assert stats_dict["dev"] == 2
+    assert stats_dict["work"] == 1
+    # Most popular first
+    assert stats[0][1] >= stats[-1][1]
+
+
+def test_tag_statistics_empty(svc: NotesService):
+    svc.create_note("No tags")
+    assert svc.tag_statistics() == []

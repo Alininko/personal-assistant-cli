@@ -50,3 +50,12 @@ class NotesService:
 
     def delete_note(self, note_id: int) -> None:
         self.repository.delete(note_id)
+
+    def notes_grouped_by_tag(self) -> dict[str, list[Note]]:
+        return self.repository.list_notes_grouped_by_tag()
+
+    def untagged_notes(self) -> list[Note]:
+        return self.repository.list_untagged_notes()
+
+    def tag_statistics(self) -> list[tuple[str, int]]:
+        return self.repository.get_tag_counts()
