@@ -1,6 +1,7 @@
+from collections import defaultdict
 from datetime import date, timedelta
 
-from sqlmodel import Session, SQLModel, col, or_, select
+from sqlmodel import Session, SQLModel, col, func, or_, select
 
 from app.domain.models import Contact, Note, NoteTagLink, Tag
 
@@ -156,3 +157,32 @@ class NotesRepository(BaseRepository[Note]):
         self.session.commit()
         self.session.refresh(note)
         return note
+
+    def list_notes_grouped_by_tag(self) -> dict[str, list[Note]]:
+        """Return notes grouped by tag name, sorted alphabetically by tag."""
+        statement = (
+            select(Tag, Note)
+            .join(NoteTagLink, col(Tag.id) == col(NoteTagLink.tag_id))
+            .join(Note, col(Note.id) == col(NoteTagLink.note_id))
+            .order_by(Tag.name, Note.title)
+        )
+        grouped: dict[str, list[Note]] = defaultdict(list)
+        for tag, note in self.session.exec(statement).all():
+            grouped[tag.name].append(note)
+        return dict(grouped)
+
+    def list_untagged_notes(self) -> list[Note]:
+        """Return notes that have no tags."""
+        tagged_ids = select(NoteTagLink.note_id)
+        statement = select(Note).where(col(Note.id).notin_(tagged_ids))
+        return list(self.session.exec(statement).all())
+
+    def get_tag_counts(self) -> list[tuple[str, int]]:
+        """Return (tag_name, note_count) pairs sorted by count descending."""
+        statement = (
+            select(Tag.name, func.count(col(NoteTagLink.note_id)))
+            .join(NoteTagLink, col(Tag.id) == col(NoteTagLink.tag_id))
+            .group_by(Tag.name)
+            .order_by(func.count(col(NoteTagLink.note_id)).desc())
+        )
+        return list(self.session.exec(statement).all())
